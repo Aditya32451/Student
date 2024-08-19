@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Change ECA</title>
+    <style>
+        body {
+            padding: 0;
+            margin: 0;
+            background: url(Images/hs01.jpg) no-repeat center center fixed;
+            background-size: cover;
+            font-family: Arial, sans-serif;
+        }
+
+        .nav-bar {
+            background-color: #333;
+            overflow: hidden;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 20px;
+        }
+
+        .nav-bar a {
+            display: block;
+            color: white;
+            text-align: center;
+            padding: 14px 20px;
+            text-decoration: none;
+        }
+
+        .nav-bar a:hover {
+            background-color: #ddd;
+            color: black;
+        }
+
+        .nav-bar img {
+            width: 50px;
+            height: 50px;
+            cursor: pointer;
+            background-color: #333;
+        }
+
+        .form {
+            position: relative;
+            z-index: 1;
+            background: #FFFFFF;
+            opacity: 99%;
+            max-width: 90%;
+            margin: 20px auto;
+            padding: 20px;
+            text-align: center;
+            box-shadow: 0 0 20px 0 rgba(0, 0, 0, 0.2), 0 5px 5px 0 rgba(0, 0, 0, 0.24);
+            border-radius: 10px;
+        }
+
+        .form p {
+            font-size: 24px;
+            margin-bottom: 20px;
+        }
+
+        .form table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+            font-size: 1.2em;
+        }
+
+        .form table,
+        .form th,
+        .form td {
+            border: 1px solid #ddd;
+        }
+
+        .form th,
+        .form td {
+            padding: 8px;
+            text-align: left;
+        }
+
+        .form th {
+            background-color: #f2f2f2;
+        }
+
+        .form button {
+            text-transform: uppercase;
+            outline: 0;
+            border-radius: 10px;
+            background: #1ADBE5;
+            width: 100%;
+            border: 0;
+            padding: 15px;
+            color: #FFFFFF;
+            font-size: 16px;
+            cursor: pointer;
+            margin-bottom: 10px;
+        }
+
+        .form button:hover,
+        .form button:active,
+        .form button:focus {
+            background-color: #06C5CF;
+            transition: background-color 0.3s ease;
+        }
+
+        #changeECAButton {
+            background-color: #008CBA;
+        }
+
+        #changeECAButton:hover {
+            background-color: #007BB5;
+        }
+
+        .form .message {
+            margin: 15px 0 0;
+            color: #B3B3B3;
+            font-size: 14px;
+        }
+
+        .form .message a {
+            color: #06C5CF;
+            text-decoration: none;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="nav-bar">
+        <img src="Images/profile_icon.jpg" alt="Profile Icon" id="profileIcon" onclick="window.location.href='StudentChangeInfo.html'">
+        <a href="StudentHome.html">Home</a>
+    </div>
+    <div class="form">
+        <p>Change ECA</p>
+        <div class="message"></div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-app.js";
+        import { getFirestore, collection, getDocs, updateDoc, doc, getDoc, arrayUnion, arrayRemove, addDoc } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js";
+        import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-auth.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyAgwQZwXyDCdC9n2qOYH1mWX22KujsG5Ys",
+            authDomain: "eca-program.firebaseapp.com",
+            projectId: "eca-program",
+            storageBucket: "eca-program.appspot.com",
+            messagingSenderId: "116171510985",
+            appId: "1:116171510985:web:12baf1351a622460b22918"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const auth = getAuth(app);
+
+        const createECATable = async () => {
+            try {
+                const user = auth.currentUser;
+                const studentDocRef = doc(db, "studentInfo", user.uid);
+                const studentDocSnap = await getDoc(studentDocRef);
+                const studentData = studentDocSnap.exists() ? studentDocSnap.data() : {};
+                const studentECAs = studentData.ECAs || [];
+                const studentClass = parseInt(studentData.Class, 10);
+
+                const adminDocRef = doc(db, 'adminInfo', 'doc');
+                const adminDocSnap = await getDoc(adminDocRef);
+
+                if (!adminDocSnap.exists()) {
+                    console.error('Admin info document not found');
+                    return;
+                }
+
+                const adminData = adminDocSnap.data();
+                const canStudentsChangeECAs = adminData.CanStudentsChangeECAs;
+
+                if (!canStudentsChangeECAs) {
+                    window.location.href = "StudentHome.html";
+                    return;
+                }
+
+                const ecaInformationNeeded = adminData.ECAInformationNeeded || [];
+                const maxECAs = adminData.MaxECAs || Infinity;
+                const tableHeaders = ['Name', ...ecaInformationNeeded.filter(field => field !== 'Students'), 'Class Range', 'Number of Students', 'Action'];
+
+                const ecaRef = collection(db, 'ecaInfo');
+                const ecaSnapshot = await getDocs(ecaRef);
+
+                const table = document.createElement("table");
+                const thead = document.createElement("thead");
+                const tbody = document.createElement("tbody");
+
+                const headerRow = document.createElement("tr");
+                tableHeaders.forEach(header => {
+                    const th = document.createElement("th");
+                    th.textContent = header;
+                    headerRow.appendChild(th);
+                });
+                thead.appendChild(headerRow);
+
+                ecaSnapshot.forEach(doc => {
+                    const ecaData = doc.data();
+                    const classRange = ecaData.Class || [];
+                    const isClassInRange = classRange.includes(studentClass);
+
+                    if (isClassInRange) {
+                        const tr = document.createElement("tr");
+
+                        tableHeaders.forEach(header => {
+                            const td = document.createElement("td");
+                            if (header === 'Name') {
+                                td.textContent = ecaData.Name || doc.id;
+                            } else if (header === 'Class Range') {
+                                td.textContent = classRange.length > 0 ? `${Math.min(...classRange)}-${Math.max(...classRange)}` : "N/A";
+                            } else if (header === 'Number of Students') {
+                                td.textContent = ecaData.Students ? ecaData.Students.length : 0;
+                            } else if (header === 'Action') {
+                                const actionButton = document.createElement("button");
+                                const isStudentInECA = studentECAs.includes(doc.id);
+                                actionButton.textContent = isStudentInECA ? "Leave" : "Select";
+                                actionButton.addEventListener("click", () => {
+                                    if (isStudentInECA) {
+                                        leaveECA(doc.id, ecaData.Name, user.uid);
+                                    } else {
+                                        if (studentECAs.length >= maxECAs) {
+                                            alert(`You can only join up to ${maxECAs} ECAs.`);
+                                        } else {
+                                            joinECA(doc.id, ecaData.Name, user.uid);
+                                        }
+                                    }
+                                });
+                                td.appendChild(actionButton);
+                            } else {
+                                td.textContent = ecaData[header] || "N/A";
+                            }
+                            tr.appendChild(td);
+                        });
+
+                        tbody.appendChild(tr);
+                    }
+                });
+
+                table.appendChild(thead);
+                table.appendChild(tbody);
+                document.querySelector(".form").appendChild(table);
+            } catch (error) {
+                console.error("Error creating ECA table:", error);
+            }
+        };
+
+        const joinECA = async (ecaId, ecaName, studentId) => {
+            if (confirm(`Are you sure you want to join the ECA: ${ecaName}?`)) {
+                try {
+                    const studentDocRef = doc(db, "studentInfo", studentId);
+                    await updateDoc(studentDocRef, { ECAs: arrayUnion(ecaId) });
+
+                    const ecaDocRef = doc(db, "ecaInfo", ecaId);
+                    await updateDoc(ecaDocRef, { Students: arrayUnion(studentId) });
+
+                    // Log the change in ecaChanges collection
+                    const changeLog = {
+                        studentId,
+                        ecaName,
+                        date: new Date().toISOString(),
+                        action: "Join"
+                    };
+                    await addDoc(collection(db, "ecaChanges"), changeLog);
+
+                    console.log("ECA joined successfully!");
+                    alert(`ECA: ${ecaName} joined successfully!`);
+                    window.location.reload();
+                } catch (error) {
+                    console.error("Error joining ECA:", error);
+                    alert("Failed to join ECA.");
+                }
+            }
+        };
+
+        const leaveECA = async (ecaId, ecaName, studentId) => {
+            if (confirm(`Are you sure you want to leave the ECA: ${ecaName}?`)) {
+                try {
+                    const studentDocRef = doc(db, "studentInfo", studentId);
+                    await updateDoc(studentDocRef, { ECAs: arrayRemove(ecaId) });
+
+                    const ecaDocRef = doc(db, "ecaInfo", ecaId);
+                    await updateDoc(ecaDocRef, { Students: arrayRemove(studentId) });
+
+                    // Log the change in ecaChanges collection
+                    const changeLog = {
+                        studentId,
+                        ecaName,
+                        date: new Date().toISOString(),
+                        action: "Leave"
+                    };
+                    await addDoc(collection(db, "ecaChanges"), changeLog);
+
+                    console.log("ECA left successfully!");
+                    alert(`ECA: ${ecaName} left successfully!`);
+                    window.location.reload();
+                } catch (error) {
+                    console.error("Error leaving ECA:", error);
+                    alert("Failed to leave ECA.");
+                }
+            }
+        };
+
+        const checkSignInState = () => {
+            onAuthStateChanged(auth, async (user) => {
+                if (user) {
+                    console.log("User is signed in.");
+                    await createECATable();
+                } else {
+                    console.log("User is not signed in.");
+                    window.location.href = "StudentLogin.html";
+                }
+            });
+        };
+
+        document.addEventListener("DOMContentLoaded", checkSignInState);
+    </script>
+</body>
+
+</html>

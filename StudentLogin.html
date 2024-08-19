@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Student Login</title>
+    <style>
+        body {
+            padding: 0;
+            margin: 0;
+            background: url(Images/hs01.jpg) no-repeat;
+            background-attachment: fixed;
+            background-size: cover;
+            font-family: Arial, sans-serif;
+        }
+
+        .form {
+            position: relative;
+            z-index: 1;
+            background: #FFFFFF;
+            opacity: 99%;
+            max-width: 400px;
+            margin: 200px auto 100px;
+            padding: 20px;
+            text-align: center;
+            box-shadow: 0 0 20px 0 rgba(0, 0, 0, 0.2), 0 5px 5px 0 rgba(0, 0, 0, 0.24);
+            border-radius: 10px;
+        }
+
+        .form p {
+            font-size: 24px;
+            margin-bottom: 20px;
+        }
+
+        .form input {
+            outline: 0;
+            border-radius: 10px;
+            background: #F2F2F2;
+            width: 100%;
+            border: 0;
+            margin: 0 0 15px;
+            padding: 15px;
+            box-sizing: border-box;
+            font-size: 16px;
+        }
+
+        .form input:hover {
+            background-color: #D3F8F9;
+            transition: background-color 0.3s ease;
+        }
+
+        .form input:focus {
+            background-color: #D3F8F9;
+            transition: background-color 0.3s ease;
+        }
+
+        .form button {
+            text-transform: uppercase;
+            outline: 0;
+            border-radius: 10px;
+            background: #1ADBE5;
+            width: 100%;
+            border: 0;
+            padding: 15px;
+            color: #FFFFFF;
+            font-size: 16px;
+            cursor: pointer;
+            margin-bottom: 10px;
+        }
+
+        .form button:hover, .form button:active, .form button:focus {
+            background-color: #06C5CF;
+            transition: background-color 0.3s ease;
+        }
+
+        #loginButton {
+            background-color: #008CBA;
+        }
+
+        #loginButton:hover {
+            background-color: #007BB5;
+        }
+
+        #resetPasswordButton {
+            background-color: #FFA500;
+        }
+
+        #resetPasswordButton:hover {
+            background-color: #FF8C00;
+        }
+
+        .form .message {
+            margin: 15px 0 0;
+            color: #B3B3B3;
+            font-size: 14px;
+        }
+
+        .form .message a {
+            color: #06C5CF;
+            text-decoration: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="form">
+        <p>Student Login</p>
+        <input type="email" id="email" placeholder="Email" required />
+        <input type="password" id="password" placeholder="Password" required />
+        <button id="loginButton">Login</button>
+        <button id="resetPasswordButton">Reset Password</button>
+        <div class="message">
+            <p>Don't have an account? <a href="StudentSignUp.html">Sign Up</a></p>
+        </div>
+    </div>
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-app.js";
+        import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, sendPasswordResetEmail } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-auth.js";
+        import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js";
+
+        // Firebase configuration and initialization
+        const firebaseConfig = {
+            apiKey: "AIzaSyAgwQZwXyDCdC9n2qOYH1mWX22KujsG5Ys",
+            authDomain: "eca-program.firebaseapp.com",
+            projectId: "eca-program",
+            storageBucket: "eca-program.appspot.com",
+            messagingSenderId: "116171510985",
+            appId: "1:116171510985:web:12baf1351a622460b22918"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+
+        const loginButton = document.getElementById('loginButton');
+        loginButton.addEventListener('click', async () => {
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+
+            try {
+                await signInWithEmailAndPassword(auth, email, password);
+                console.log("Login successful!");
+                redirectToAppropriatePage();
+            } catch (error) {
+                console.error('Error logging in: ', error.message);
+                alert('Invalid email or password. Please try again.');
+            }
+        });
+
+        const resetPasswordButton = document.getElementById('resetPasswordButton');
+        resetPasswordButton.addEventListener('click', async () => {
+            const email = document.getElementById('email').value;
+
+            if (!email) {
+                alert('Please enter your email address.');
+                return;
+            }
+
+            try {
+                await sendPasswordResetEmail(auth, email);
+                alert('Password reset email sent! Please check your inbox.');
+            } catch (error) {
+                console.error('Error sending password reset email: ', error.message);
+                alert('Error sending password reset email. Please try again.');
+            }
+        });
+
+        const redirectToAppropriatePage = async () => {
+            try {
+                const db = getFirestore(app);
+                const adminDoc = await getDoc(doc(db, "adminInfo", "doc"));
+                if (adminDoc.exists()) {
+                    const canChangeECAs = adminDoc.data().CanStudentsChangeECAs;
+                    if (canChangeECAs) {
+                        window.location.href = "StudentChangeECA.html";
+                    } else {
+                        window.location.href = "StudentHome.html";
+                    }
+                }
+            } catch (error) {
+                console.error("Error checking CanStudentsChangeECAs:", error);
+                window.location.href = "StudentHome.html";
+            }
+        };
+
+        const checkSignInState = () => {
+            onAuthStateChanged(auth, (user) => {
+                if (user) {
+                    console.log("User is signed in.");
+                    redirectToAppropriatePage(); // Redirect if already signed in
+                } else {
+                    console.log("User is not signed in.");
+                }
+            });
+        };
+
+        document.addEventListener("DOMContentLoaded", () => {
+            checkSignInState();
+        });
+    </script>
+</body>
+</html>

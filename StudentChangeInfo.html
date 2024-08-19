@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Change Information</title>
+    <style>
+        body {
+            padding: 0;
+            margin: 0;
+            background: url(Images/hs01.jpg) no-repeat center center fixed;
+            background-size: cover;
+            font-family: Arial, sans-serif;
+        }
+
+        .nav-bar {
+            background-color: #333;
+            overflow: hidden;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 20px;
+        }
+
+        .nav-bar a {
+            display: block;
+            color: white;
+            text-align: center;
+            padding: 14px 20px;
+            text-decoration: none;
+        }
+
+        .nav-bar a:hover {
+            background-color: #ddd;
+            color: black;
+        }
+
+        .nav-bar .right {
+            display: flex;
+            align-items: center;
+        }
+
+        .form {
+            position: relative;
+            z-index: 1;
+            background: #FFFFFF;
+            opacity: 99%;
+            max-width: 90%;
+            margin: 20px auto;
+            padding: 20px;
+            text-align: center;
+            box-shadow: 0 0 20px 0 rgba(0, 0, 0, 0.2), 0 5px 5px 0 rgba(0, 0, 0, 0.24);
+            border-radius: 10px;
+        }
+
+        .form p {
+            font-size: 24px;
+            margin-bottom: 20px;
+        }
+
+        .form input,
+        .form select {
+            outline: 0;
+            border-radius: 10px;
+            background: #F2F2F2;
+            width: 100%;
+            border: 0;
+            margin: 0 0 15px;
+            padding: 15px;
+            box-sizing: border-box;
+            font-size: 16px;
+        }
+
+        .form input:hover,
+        .form select:hover {
+            background-color: #D3F8F9;
+            transition: background-color 0.3s ease;
+        }
+
+        .form input:focus,
+        .form select:focus {
+            background-color: #D3F8F9;
+            transition: background-color 0.3s ease;
+        }
+
+        .form button {
+            text-transform: uppercase;
+            outline: 0;
+            border-radius: 10px;
+            background: #1ADBE5;
+            width: 100%;
+            border: 0;
+            padding: 15px;
+            color: #FFFFFF;
+            font-size: 16px;
+            cursor: pointer;
+            margin-bottom: 10px;
+        }
+
+        .form button:hover,
+        .form button:active,
+        .form button:focus {
+            background-color: #06C5CF;
+            transition: background-color 0.3s ease;
+        }
+
+        .form .message {
+            margin: 15px 0 0;
+            color: #B3B3B3;
+            font-size: 14px;
+        }
+
+        .form .message a {
+            color: #06C5CF;
+            text-decoration: none;
+        }
+
+        .section {
+            margin-bottom: 30px;
+        }
+
+        .section h3 {
+            margin-bottom: 10px;
+            font-size: 22px;
+            color: #333;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="nav-bar">
+        <a href="StudentHome.html">Home</a>
+        <div class="right">
+            <a href="#" id="selectECAButton" style="display: none;">Select ECAs</a>
+            <a href="#" id="signOutButton">Sign Out</a>
+        </div>
+    </div>
+    <div class="form">
+        <div class="section">
+            <h3>Change Information</h3>
+            <div id="formFields"></div>
+            <button id="saveInfoButton">Save Information</button>
+        </div>
+        <div class="section">
+            <h3>Change Email</h3>
+            <input type="email" id="newEmail" placeholder="New Email">
+            <input type="password" id="currentPasswordEmail" placeholder="Current Password" required>
+            <button id="saveEmailButton">Save Email</button>
+        </div>
+        <div class="section">
+            <h3>Change Password</h3>
+            <input type="password" id="currentPassword" placeholder="Current Password" required>
+            <input type="password" id="newPassword" placeholder="New Password">
+            <input type="password" id="confirmPassword" placeholder="Confirm New Password">
+            <button id="savePasswordButton">Save Password</button>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-app.js";
+        import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js";
+        import { getAuth, onAuthStateChanged, updateEmail, updatePassword, reauthenticateWithCredential, EmailAuthProvider, signOut } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-auth.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyAgwQZwXyDCdC9n2qOYH1mWX22KujsG5Ys",
+            authDomain: "eca-program.firebaseapp.com",
+            projectId: "eca-program",
+            storageBucket: "eca-program.appspot.com",
+            messagingSenderId: "116171510985",
+            appId: "1:116171510985:web:12baf1351a622460b22918"
+        };
+
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const auth = getAuth(app);
+
+        const loadFormFields = async (userId) => {
+            try {
+                const studentDocRef = doc(db, "studentInfo", userId);
+                const studentDocSnap = await getDoc(studentDocRef);
+
+                if (studentDocSnap.exists()) {
+                    const studentData = studentDocSnap.data();
+                    const formFields = document.getElementById("formFields");
+
+                    // Display fields
+                    for (const [key, value] of Object.entries(studentData)) {
+                        if (key !== 'ECAs' && key !== 'Email') { // Do not allow changing ECAs here
+                            const fieldWrapper = document.createElement('div');
+                            fieldWrapper.className = 'form-group';
+
+                            const label = document.createElement('label');
+                            label.htmlFor = key;
+                            label.textContent = key;
+
+                            const input = document.createElement('input');
+                            input.type = 'text';
+                            input.id = key;
+                            input.value = value || '';
+
+                            fieldWrapper.appendChild(label);
+                            fieldWrapper.appendChild(input);
+                            formFields.appendChild(fieldWrapper);
+                        }
+                    }
+
+                    // Save information button event
+                    document.getElementById("saveInfoButton").addEventListener("click", async () => {
+                        try {
+                            const updatedData = {};
+                            document.querySelectorAll(".form #formFields input").forEach(input => {
+                                updatedData[input.id] = input.value;
+                            });
+
+                            // Update Firestore
+                            await setDoc(studentDocRef, updatedData, { merge: true });
+                            alert("Information updated successfully.");
+                        } catch (error) {
+                            console.error("Error updating information:", error);
+                            alert("Error updating information.");
+                        }
+                    });
+
+                    // Save email button event
+                    document.getElementById("saveEmailButton").addEventListener("click", async () => {
+                        try {
+                            const newEmail = document.getElementById("newEmail").value;
+                            const currentPassword = document.getElementById("currentPasswordEmail").value;
+                            const user = auth.currentUser;
+
+                            if (!newEmail || !currentPassword) {
+                                alert("Please enter both email and current password.");
+                                return;
+                            }
+
+                            const credential = EmailAuthProvider.credential(user.email, currentPassword);
+                            await reauthenticateWithCredential(user, credential);
+
+                            await updateEmail(user, newEmail);
+                            await setDoc(studentDocRef, { Email: newEmail }, { merge: true });
+                            alert("Email updated successfully.");
+                        } catch (error) {
+                            console.error("Error updating email:", error);
+                            alert("Error updating email.");
+                        }
+                    });
+
+                    // Save password button event
+                    document.getElementById("savePasswordButton").addEventListener("click", async () => {
+                        try {
+                            const currentPassword = document.getElementById("currentPassword").value;
+                            const newPassword = document.getElementById("newPassword").value;
+                            const confirmPassword = document.getElementById("confirmPassword").value;
+                            const user = auth.currentUser;
+
+                            if (!currentPassword || !newPassword || !confirmPassword) {
+                                alert("Please fill out all password fields.");
+                                return;
+                            }
+
+                            if (newPassword !== confirmPassword) {
+                                alert("New passwords do not match.");
+                                return;
+                            }
+
+                            const credential = EmailAuthProvider.credential(user.email, currentPassword);
+                            await reauthenticateWithCredential(user, credential);
+                            await updatePassword(user, newPassword);
+                            alert("Password updated successfully.");
+                        } catch (error) {
+                            console.error("Error updating password:", error);
+                            alert("Error updating password.");
+                        }
+                    });
+
+                    // Sign out button event
+                    document.getElementById("signOutButton").addEventListener("click", async () => {
+                        try {
+                            await signOut(auth);
+                            window.location.href = "StudentLogin.html";
+                        } catch (error) {
+                            console.error("Error signing out:", error);
+                            alert("Error signing out.");
+                        }
+                    });
+
+                } else {
+                    console.error("No such document!");
+                }
+            } catch (error) {
+                console.error("Error getting document:", error);
+            }
+        };
+
+        const checkSignInState = () => {
+            onAuthStateChanged(auth, async (user) => {
+                if (user) {
+                    console.log("User is signed in.");
+                    loadFormFields(user.uid);
+
+                    const adminDocRef = doc(db, 'adminInfo', 'doc');
+                    const adminDocSnap = await getDoc(adminDocRef);
+                    if (adminDocSnap.exists()) {
+                        const canStudentsChangeECAs = adminDocSnap.data().CanStudentsChangeECAs;
+                        document.getElementById("selectECAButton").style.display = canStudentsChangeECAs ? 'block' : 'none';
+                    }
+                } else {
+                    console.log("User is not signed in.");
+                    window.location.href = "StudentLogin.html";
+                }
+            });
+        };
+
+        document.addEventListener("DOMContentLoaded", checkSignInState);
+    </script>
+</body>
+
+</html>

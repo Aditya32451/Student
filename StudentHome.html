@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Student Home</title>
+    <style>
+        body {
+            padding: 0;
+            margin: 0;
+            background: url(Images/hs01.jpg) no-repeat center center fixed;
+            background-size: cover;
+            font-family: Arial, sans-serif;
+        }
+
+        .nav-bar {
+            background-color: #333;
+            overflow: hidden;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 20px;
+        }
+
+        .nav-bar a {
+            display: block;
+            color: white;
+            text-align: center;
+            padding: 14px 20px;
+            text-decoration: none;
+        }
+
+        .nav-bar a:hover {
+            background-color: #ddd;
+            color: black;
+        }
+
+        .nav-bar img {
+            width: 50px;
+            height: 50px;
+            cursor: pointer;
+            background-color: #333;
+        }
+
+        .form {
+            position: relative;
+            z-index: 1;
+            background: #FFFFFF;
+            opacity: 99%;
+            max-width: 90%;
+            margin: 20px auto;
+            padding: 20px;
+            text-align: center;
+            box-shadow: 0 0 20px 0 rgba(0, 0, 0, 0.2), 0 5px 5px 0 rgba(0, 0, 0, 0.24);
+            border-radius: 10px;
+        }
+
+        .form h2 {
+            font-size: 24px;
+            margin-bottom: 20px;
+        }
+
+        .form .eca-item {
+            margin-bottom: 20px;
+            text-align: left;
+        }
+
+        .form .eca-item h3 {
+            margin: 0;
+            font-size: 20px;
+            color: #333;
+            cursor: pointer;
+        }
+
+        .form .eca-comments table,
+        .form .eca-attendance table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 10px;
+        }
+
+        .form .eca-comments th,
+        .form .eca-comments td,
+        .form .eca-attendance th,
+        .form .eca-attendance td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+
+        .form .eca-comments th,
+        .form .eca-attendance th {
+            background-color: #f2f2f2;
+        }
+
+        .form .eca-comments,
+        .form .eca-attendance {
+            display: none;
+        }
+
+        .form button {
+            text-transform: uppercase;
+            outline: 0;
+            border-radius: 10px;
+            background: #1ADBE5;
+            width: 100%;
+            border: 0;
+            padding: 15px;
+            color: #FFFFFF;
+            font-size: 16px;
+            cursor: pointer;
+            margin-bottom: 10px;
+        }
+
+        .form button:hover,
+        .form button:active,
+        .form button:focus {
+            background-color: #06C5CF;
+            transition: background-color 0.3s ease;
+        }
+
+        .form .toggle-comments,
+        .form .toggle-attendance {
+            background-color: #333;
+            color: #fff;
+            padding: 10px;
+            margin-bottom: 10px;
+            cursor: pointer;
+        }
+
+        .form .toggle-comments:hover,
+        .form .toggle-attendance:hover {
+            background-color: #444;
+        }
+
+        .form .leave-eca-button {
+            background-color: #ff4d4d;
+            color: #fff;
+            padding: 10px;
+            margin-bottom: 10px;
+            cursor: pointer;
+        }
+
+        .form .leave-eca-button:hover {
+            background-color: #cc0000;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="nav-bar">
+        <img src="Images/profile_icon.jpg" alt="Profile Icon" id="profileIcon" onclick="window.location.href='StudentChangeInfo.html'">
+        <a id="selectECAsButton" href="StudentChangeECA.html" style="display:none;">Select ECAs</a>
+    </div>
+    <div class="form">
+        <h2>Welcome, <span id="studentName"></span></h2>
+        <div id="ecaList"></div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-app.js";
+        import { getFirestore, doc, getDoc, collection, getDocs, updateDoc, arrayRemove, addDoc } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js";
+        import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-auth.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyAgwQZwXyDCdC9n2qOYH1mWX22KujsG5Ys",
+            authDomain: "eca-program.firebaseapp.com",
+            projectId: "eca-program",
+            storageBucket: "eca-program.appspot.com",
+            messagingSenderId: "116171510985",
+            appId: "1:116171510985:web:12baf1351a622460b22918"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const auth = getAuth(app);
+
+        const fetchAttendance = async (ecaId, studentId) => {
+            const ecaAttendanceRef = doc(db, "ecaAttendance", ecaId);
+            try {
+                const attendanceSnap = await getDoc(ecaAttendanceRef);
+                if (!attendanceSnap.exists()) {
+                    return { attendanceHTML: "Error receiving attendance at this moment.", attendancePercentage: 0 };
+                }
+                const attendanceData = attendanceSnap.data();
+                const dates = Object.keys(attendanceData);
+                if (dates.length === 0) {
+                    return { attendanceHTML: "No attendance data available.", attendancePercentage: 0 };
+                }
+                let attendanceHTML = "<h4>Attendance</h4><table><thead><tr><th>Date</th><th>Status</th></tr></thead><tbody>";
+                let presentCount = 0;
+                dates.forEach(date => {
+                    const studentsPresent = attendanceData[date];
+                    const status = studentsPresent.includes(studentId) ? "Present" : "Absent";
+                    if (status === "Present") presentCount++;
+                    attendanceHTML += `<tr><td>${new Date(date).toLocaleDateString()}</td><td>${status}</td></tr>`;
+                });
+                const attendancePercentage = (presentCount / dates.length) * 100;
+                attendanceHTML += "</tbody></table>";
+                return { attendanceHTML, attendancePercentage: attendancePercentage.toFixed(2) };
+            } catch (error) {
+                console.error("Error fetching attendance:", error);
+                return { attendanceHTML: "Error receiving attendance at this moment.", attendancePercentage: 0 };
+            }
+        };
+
+        const fetchComments = async (ecaId, studentId) => {
+            const ecaCommentsRef = doc(db, "ecaComments", ecaId);
+            try {
+                const commentsSnap = await getDoc(ecaCommentsRef);
+                if (!commentsSnap.exists()) {
+                    return { commentsHTML: "No comments available.", commentCount: 0 };
+                }
+                const commentsData = commentsSnap.data();
+                const comments = Object.values(commentsData).filter(comment => comment[0] === studentId);
+                if (comments.length === 0) {
+                    return { commentsHTML: "No comments available.", commentCount: 0 };
+                }
+                let commentsHTML = "<h4>Comments</h4><table><thead><tr><th>Date</th><th>Comment</th></tr></thead><tbody>";
+                comments.forEach(comment => {
+                    const date = new Date(comment[2]).toLocaleDateString();
+                    commentsHTML += `<tr><td>${date}</td><td>${comment[1]}</td></tr>`;
+                });
+                commentsHTML += "</tbody></table>";
+                return { commentsHTML, commentCount: comments.length };
+            } catch (error) {
+                console.error("Error fetching comments:", error);
+                return { commentsHTML: "Error receiving comments at this moment.", commentCount: 0 };
+            }
+        };
+
+        const leaveECA = async (ecaId, ecaName, studentId) => {
+            const confirmation = prompt(`To confirm leaving the ECA: ${ecaName}, please type "CONFIRM".`);
+            if (confirmation === "CONFIRM") {
+                try {
+                    const studentDocRef = doc(db, "studentInfo", studentId);
+                    await updateDoc(studentDocRef, { ECAs: arrayRemove(ecaId) });
+
+                    const ecaDocRef = doc(db, "ecaInfo", ecaId);
+                    await updateDoc(ecaDocRef, { Students: arrayRemove(studentId) });
+
+                    // Log the change in ecaChanges collection
+                    const changeLog = {
+                        studentId,
+                        ecaName,
+                        date: new Date().toISOString(),
+                        action: "Leave"
+                    };
+                    await addDoc(collection(db, "ecaChanges"), changeLog);
+
+                    console.log("ECA left successfully!");
+                    alert(`ECA: ${ecaName} left successfully!`);
+                    window.location.reload();
+                } catch (error) {
+                    console.error("Error leaving ECA:", error);
+                    alert("Failed to leave ECA.");
+                }
+            } else {
+                alert("Action cancelled. To leave the ECA, please type 'CONFIRM' exactly.");
+            }
+        };
+
+        const displayStudentInfo = async (user) => {
+            try {
+                const studentDocRef = doc(db, "studentInfo", user.uid);
+                const studentDocSnap = await getDoc(studentDocRef);
+                const studentData = studentDocSnap.exists() ? studentDocSnap.data() : {};
+                const studentName = studentData.Name || "Student";
+                const studentECAs = studentData.ECAs || [];
+                document.getElementById("studentName").textContent = studentName;
+
+                const ecaListContainer = document.getElementById("ecaList");
+                ecaListContainer.innerHTML = "";
+
+                for (const ecaId of studentECAs) {
+                    const ecaDocRef = doc(db, "ecaInfo", ecaId);
+                    const ecaDocSnap = await getDoc(ecaDocRef);
+                    if (!ecaDocSnap.exists()) continue;
+
+                    const ecaData = ecaDocSnap.data();
+                    const { attendanceHTML, attendancePercentage } = await fetchAttendance(ecaId, user.uid);
+                    const { commentsHTML, commentCount } = await fetchComments(ecaId, user.uid);
+
+                    const ecaDiv = document.createElement("div");
+                    ecaDiv.classList.add("eca-item");
+                    ecaDiv.innerHTML = `
+                        <h3>${ecaData.Name || ecaId}</h3>
+                        <div class="eca-details" style="display:none;">
+                            <button class="toggle-attendance">${attendancePercentage}% Attendance</button>
+                            <div class="eca-attendance" style="display:none;">${attendanceHTML}</div>
+                            <button class="toggle-comments">${commentCount} Comments</button>
+                            <div class="eca-comments" style="display:none;">${commentsHTML}</div>
+                            <button class="leave-eca-button">Leave ECA</button>
+                        </div>
+                    `;
+
+                    const ecaTitle = ecaDiv.querySelector("h3");
+                    const detailsSection = ecaDiv.querySelector(".eca-details");
+                    const commentsButton = ecaDiv.querySelector(".toggle-comments");
+                    const commentsSection = ecaDiv.querySelector(".eca-comments");
+                    const attendanceButton = ecaDiv.querySelector(".toggle-attendance");
+                    const attendanceSection = ecaDiv.querySelector(".eca-attendance");
+                    const leaveButton = ecaDiv.querySelector(".leave-eca-button");
+
+                    ecaTitle.addEventListener("click", () => {
+                        detailsSection.style.display = detailsSection.style.display === "none" ? "block" : "none";
+                        commentsSection.style.display = "none"; // Close comments if attendance is toggled
+                        attendanceSection.style.display = "none"; // Close attendance if comments is toggled
+                    });
+
+                    commentsButton.addEventListener("click", () => {
+                        commentsSection.style.display = commentsSection.style.display === "none" ? "block" : "none";
+                    });
+
+                    attendanceButton.addEventListener("click", () => {
+                        attendanceSection.style.display = attendanceSection.style.display === "none" ? "block" : "none";
+                    });
+
+                    leaveButton.addEventListener("click", () => {
+                        leaveECA(ecaId, ecaData.Name || ecaId, user.uid);
+                    });
+
+                    ecaListContainer.appendChild(ecaDiv);
+                }
+
+                const adminDocRef = doc(db, "adminInfo", "doc");
+                const adminDocSnap = await getDoc(adminDocRef);
+                if (adminDocSnap.exists() && adminDocSnap.data().CanStudentsChangeECAs) {
+                    document.getElementById("selectECAsButton").style.display = "block";
+                }
+            } catch (error) {
+                console.error("Error displaying student info:", error);
+            }
+        };
+
+        const checkSignInState = () => {
+            onAuthStateChanged(auth, async (user) => {
+                if (user) {
+                    console.log("User is signed in.");
+                    await displayStudentInfo(user);
+                } else {
+                    console.log("User is not signed in.");
+                    window.location.href = "StudentLogin.html";
+                }
+            });
+        };
+
+        document.addEventListener("DOMContentLoaded", checkSignInState);
+    </script>
+</body>
+
+</html>
